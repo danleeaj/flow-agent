@@ -36,8 +36,6 @@ def output_weather_report(report: str) -> str:
     print("=" * 25)
     return f"Report outputted: {report}"
 
-# Initialize LLM and tools
-# os.environ["GOOGLE_API_KEY"] = "AIzaSyC5d6eNtQBxJJmato3FK3l7xnpRmREZCM4"
 llm = init_chat_model("google_genai:gemini-2.0-flash")
 
 tools = [get_weather_data, output_weather_report]
