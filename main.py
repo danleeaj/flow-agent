@@ -7,52 +7,52 @@ import os
 # import dotenv
 # dotenv.load_dotenv()
 
-from agent.agent import process_city_weather
+from agent.agent import process_city_weather, process_patient_data
 
 app = FastAPI()
 
 # Pydantic model for the request body
-class WeatherRequest(BaseModel):
-    city: str
+class PatientRequest(BaseModel):
+    patient_id: str
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
-@app.post("/weather")
-def get_weather_report(request: WeatherRequest):
-    """Trigger a weather report for the specified city."""
+@app.post("/patient")
+def get_patient_report(request: PatientRequest):
+    """Trigger a patient report for the specified patient ID."""
     try:
-        if not request.city or not request.city.strip():
-            raise HTTPException(status_code=400, detail="City name cannot be empty")
-        
-        # Capture the output from the agent
-        import io
-        from contextlib import redirect_stdout
-        
-        captured_output = io.StringIO()
-        
-        with redirect_stdout(captured_output):
-            process_city_weather(request.city.strip())
-        
-        output = captured_output.getvalue()
-        
-        return {
-            "success": True,
-            "city": request.city,
-            "message": "Weather report generated successfully",
-            "output": output
-        }
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating weather report: {str(e)}")
+        if not request.patient_id or not request.patient_id.strip():
+            raise HTTPException(status_code=400, detail="Patient ID cannot be empty")
 
-@app.get("/weather/{city}")
-def get_weather_report_get(city: str):
-    """Alternative GET endpoint to trigger a weather report."""
+        # Capture the output from the agent
+        import io
+        from contextlib import redirect_stdout
+        
+        captured_output = io.StringIO()
+        
+        with redirect_stdout(captured_output):
+            process_patient_data(request.patient_id.strip())
+
+        output = captured_output.getvalue()
+        
+        return {
+            "success": True,
+            "patient_id": request.patient_id,
+            "message": "Patient report generated successfully",
+            "output": output
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating patient report: {str(e)}")
+
+@app.get("/patient/{patient_id}")
+def get_patient_report_get(patient_id: str):
+    """Alternative GET endpoint to trigger a patient report."""
     try:
-        if not city or not city.strip():
-            raise HTTPException(status_code=400, detail="City name cannot be empty")
+        if not patient_id or not patient_id.strip():
+            raise HTTPException(status_code=400, detail="Patient ID cannot be empty")
         
         # Capture the output from the agent
         import io
@@ -61,16 +61,16 @@ def get_weather_report_get(city: str):
         captured_output = io.StringIO()
         
         with redirect_stdout(captured_output):
-            process_city_weather(city.strip())
+            process_patient_data(patient_id.strip())
         
         output = captured_output.getvalue()
         
         return {
             "success": True,
-            "city": city,
-            "message": "Weather report generated successfully",
+            "patient_id": patient_id,
+            "message": "Patient report generated successfully",
             "output": output
         }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating weather report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating patient report: {str(e)}")

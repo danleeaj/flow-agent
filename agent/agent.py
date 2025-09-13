@@ -9,8 +9,8 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 import random
 
-# import dotenv
-# dotenv.load_dotenv()
+import dotenv
+dotenv.load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
