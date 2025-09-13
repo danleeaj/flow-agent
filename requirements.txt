@@ -1,1 +1,3 @@
 fastapi[all]
+langchain[google-genai]
+langgraph
