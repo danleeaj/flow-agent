@@ -3,11 +3,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import sys
 import os
+
 # import dotenv
-
-# Add the agent directory to the Python path so we can import from it
-# sys.path.append(os.path.join(os.path.dirname(__file__), 'agent'))
-
 # dotenv.load_dotenv()
 
 from agent.agent import process_city_weather
