@@ -7,7 +7,7 @@ import os
 # import dotenv
 # dotenv.load_dotenv()
 
-from agent.agent import process_city_weather, process_patient_data
+from agent.agent import process_patient_data
 
 app = FastAPI()
 
