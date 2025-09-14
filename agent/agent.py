@@ -53,8 +53,8 @@ def diagnose_tool(vitals: str) -> str:
         Give a concise clinical impression (one sentence).
         """
         impression = call_llm(impression_prompt)
-        # return f"CLINICAL IMPRESSION: {impression}\nCONFIDENCE: {confidence}/5"
-        return "<need further test>"
+        return f"CLINICAL IMPRESSION: {impression}\nCONFIDENCE: {confidence}/5"
+        # return "<need further test>"
     else:
         return "<need further test>"
 
@@ -98,7 +98,7 @@ def notification_tool(message: str) -> str:
 
     # Get phone numbers from environment or use defaults
     sender_number = os.getenv("WHATSAPP_FROM")
-    recipient_number = os.getenv("PATIENT_WHATSAPP_NUMBER", "6588663319")
+    recipient_number = os.getenv("WHATSAPP_TO")
 
     # Initialize Twilio client
     client = Client(account_sid, auth_token)
@@ -113,41 +113,87 @@ def notification_tool(message: str) -> str:
     return(f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}")
 
 @tool
-def order_test_tool(test_name: str) -> str:
-    """Orders a specific medical test for the patient."""
-    print(f"Ordered test: {test_name}")
-    return f"Test '{test_name}' ordered."
-
-@tool
-def test_tool(message: str) -> str:
-    """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
-    return "Tumor markers"
+def order_test_tool(test_names: list[str]) -> str:
+    """Orders a list of tests for the patient. Enter as an array of strings."""
+    print(f"Ordered tests: {', '.join(test_names)}")
+    return f"Tests '{', '.join(test_names)}' ordered."
 
 # @tool
 # def test_tool(message: str) -> str:
 #     """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
+#     return "Tumor markers"
 
-#     test_prompt = """You are a Patient Agent responsible deciding whether further medical tests are needed.
-#     Base on the following note from the doctor, decide whether further test is needed. If the symptom is obvious then no, if yes then yes.
+@tool
+def test_tool(message: str) -> str:
+    """Determines if additional diagnostic tests are needed based on patient evaluation."""
+    
+    test_prompt = """You are a Clinical Decision Support Agent. Based on the patient evaluation provided, determine if additional diagnostic tests are warranted.
 
-#     {message} 
+PATIENT EVALUATION:
+{message}
 
-#     The following are tests available:
+CARDIAC/VASCULAR:
+1. Troponin - Cardiac injury marker
+2. CK-MB - Myocardial damage enzyme
+3. BNP/NT-proBNP - Heart failure marker
+4. D-dimer - Thromboembolism screening
 
-#     1. Troponin (heart-damage check)
-#     2. D-dimer (blood-clot screen)
-#     3. Lactate (body “stress/oxygen debt” signal)
-#     4. Blood cultures (find bacteria in the bloodstream)
-#     5. Respiratory PCR panel (COVID/Flu/RSV, etc.)
+HEMATOLOGY/COAGULATION:
+5. Complete Blood Count (CBC) - Cell counts and morphology
+6. PT/INR - Coagulation function
+7. PTT - Intrinsic coagulation pathway
+8. Fibrinogen - Clotting protein level
 
-#     - Output a single combined string.
-#     - For missing tests, include "<no further test>".
-#     - For tests that exist, include "<{label} test>" (replace {label} with the test name).
-#     - Combine all results into one string without extra text or formatting.
-#     - Your output should just contain the tests needed or "<no further test>".
-# """
-#     need_test = call_llm(test_prompt)
-#     return need_test.strip()
+CHEMISTRY/METABOLIC:
+9. Basic Metabolic Panel (BMP) - Electrolytes, kidney function
+10. Comprehensive Metabolic Panel (CMP) - Extended chemistry panel
+11. Lactate - Tissue hypoperfusion/metabolic stress
+12. Arterial Blood Gas (ABG) - Acid-base and oxygenation status
+13. Venous Blood Gas (VBG) - Venous pH and CO2
+14. Glucose - Blood sugar level
+15. HbA1c - Long-term glucose control
+
+LIVER/PANCREAS:
+16. Liver Function Tests (LFT) - Hepatic enzyme panel
+17. Lipase - Pancreatic enzyme
+18. Amylase - Pancreatic/salivary enzyme
+
+INFECTIOUS DISEASE:
+19. Blood cultures - Bacteremia detection
+20. Respiratory PCR panel - Viral pathogens (COVID-19, Influenza, RSV, etc.)
+21. Procalcitonin - Bacterial infection marker
+22. C-reactive protein (CRP) - Inflammation marker
+23. Erythrocyte Sedimentation Rate (ESR) - Systemic inflammation
+
+ENDOCRINE:
+24. Thyroid Function Tests (TFT) - TSH, T3, T4
+25. Cortisol - Adrenal function
+
+RENAL/URINARY:
+26. Urinalysis - Urine composition and microscopy
+27. Creatinine - Kidney function marker
+
+TOXICOLOGY:
+28. Urine drug screen - Substance detection
+29. Ethanol level - Alcohol concentration
+30. Salicylate level - Aspirin toxicity screening
+
+DECISION CRITERIA:
+- If clinical picture is clear and diagnosis is evident → No additional tests needed
+- If differential diagnosis requires confirmation → Recommend specific tests
+- If critical conditions need to be ruled out → Recommend appropriate screening tests
+
+OUTPUT FORMAT:
+- If no tests needed: "<no further test>"
+- If tests needed: "<test_name>" for each required test
+- Output only the test recommendations, no additional text
+- Recommend at most 1 test
+
+Provide your recommendation:"""
+# - Multiple tests: Separate with spaces (e.g., "<troponin> <d-dimer>")
+    
+    need_test = call_llm(test_prompt.format(message=message))
+    return need_test.strip()
 
 llm = init_chat_model("google_genai:gemini-2.0-flash")
 
