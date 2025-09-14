@@ -70,21 +70,26 @@ def output_diagnosis(diagnosis: str) -> str:
 def get_data_tool(patient_id: str) -> str:
     """Returns patient medical history from database."""
     import requests
-    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/get_record_test'
+
+    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/get-patient-tests'
     headers = {
         'Authorization': 'Bearer sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
-        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
-        'Content-Type': 'application/json'
+        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R'
     }
-    data = {
-        "patient_id": "6f5ace3b-fc16-4a32-9b35-1b936af758eb",
-    }
-    response = requests.post(url, headers=headers, json=data)
-    # Check if request was successful
-    response.raise_for_status()
-    # Get response data
-    result = response.json()
-    return result
+
+    params = {'patient_id': patient_id}
+    response = requests.get(url, headers=headers, params=params)
+
+    message = ""
+
+    if response.status_code == 200:
+        result = response.json()
+        for record in result['data']:
+            message += f"{record['test']} : {record['content']}\n"
+        return message.strip()
+            
+    else:
+        return f"Error: Failed to retrieve results for patient {patient_id}. Either patient_id is wrong or there is no historical data."
 
 @tool
 def notification_tool(message: str) -> str:
