@@ -113,8 +113,25 @@ def notification_tool(message: str) -> str:
     return(f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}")
 
 @tool
-def order_test_tool(test_names: list[str]) -> str:
-    """Orders a list of tests for the patient. Enter as an array of strings."""
+def order_test_tool(test_names: list[str], patient_id: str) -> str:
+    """Orders a list of tests for the patient, where patient_id is required. Enter as an array of strings."""
+
+    import requests
+    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/create-order'
+    headers = {
+        'Authorization': 'Bearer sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
+        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
+        'Content-Type': 'application/json'
+    }
+
+    for test in test_names:
+
+        data = {
+            "patient_id": patient_id,
+            "test": test
+        }
+        response = requests.post(url, headers=headers, json=data)
+
     print(f"Ordered tests: {', '.join(test_names)}")
     return f"Tests '{', '.join(test_names)}' ordered."
 
