@@ -9,14 +9,14 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 import random
 
-import dotenv
-dotenv.load_dotenv()
+# import dotenv
+# dotenv.load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
 @tool
-def diagnose_patient(vitals: str) -> str:
+def diagnose_tool(vitals: str) -> str:
     """Returns a possible diagnosis based on a summary of patient's medical history. The assistant must personally summarize the patient's medical history before calling this tool."""
     return "cancer"
 
@@ -28,9 +28,41 @@ def output_diagnosis(diagnosis: str) -> str:
     print("=" * 25)
     return f"Diagnosis outputted: {diagnosis}"
 
+@tool
+def get_data_tool(patient_id: str) -> str:
+    """Returns patient medical history from database."""
+    import requests
+    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/get_record_test'
+    headers = {
+        'Authorization': 'Bearer sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
+        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        "patient_id": "6f5ace3b-fc16-4a32-9b35-1b936af758eb",
+    }
+    response = requests.post(url, headers=headers, json=data)
+    # Check if request was successful
+    response.raise_for_status()
+    # Get response data
+    result = response.json()
+    return result
+
+@tool
+def notification_tool(message: str) -> str:
+    """Sends a notification to the patient."""
+    print(f"Notification sent to patient: {message}")
+    return "Notification sent."
+
+@tool
+def test_tool(message: str) -> str:
+    """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
+    return "Tumor markers"
+
 llm = init_chat_model("google_genai:gemini-2.0-flash")
 
-tools = [diagnose_patient, output_diagnosis]
+# Remember to use the tools
+tools = [diagnose_tool, output_diagnosis, notification_tool, get_data_tool, test_tool]
 llm_with_tools = llm.bind_tools(tools)
 
 def should_continue(state: State):
@@ -42,7 +74,7 @@ def should_continue(state: State):
     if last_message.tool_calls:
         return "tools"
     # If we've called the output tool, we're done
-    if any("output_diagnosis" in str(msg) for msg in messages[-3:]):
+    if any("notification_tool" in str(msg) for msg in messages[-3:]):
         return "end"
     # Otherwise, continue with the agent
     return "agent"
@@ -75,33 +107,31 @@ graph_builder.add_edge("tools", "agent")
 
 graph = graph_builder.compile()
 
-def get_patient_history(patient_id: str) -> str:
-    import requests
-    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/get_record_test'
-    headers = {
-        'Authorization': 'Bearer sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
-        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
-        'Content-Type': 'application/json'
-    }
-    data = {
-        "patient_id": "6f5ace3b-fc16-4a32-9b35-1b936af758eb",
-    }
-    response = requests.post(url, headers=headers, json=data)
-    # Check if request was successful
-    response.raise_for_status()
-    # Get response data
-    result = response.json()
-    return result
 
 # THIS IS THE ENTRY POINT
 def process_patient_data(patient_id: str):
-    patient_history = get_patient_history(patient_id)
+    # patient_history = get_patient_history(patient_id)
     initial_message = HumanMessage(
-        content=f"You are a doctor's assistant."
-                f"Research the historical medical records for patient ID {patient_id} and help the doctor."
-                f"The following is the patient's medical history: {patient_history}"
-                f"You have access to tools to get historical patient records and help you with the diagnosis process."
-                f"Use them as you see fit to complete this task."
+        content=f"""
+        You are a Patient Diagnosis AI, permanently associated with a specific patient via patient_id.  Your responsibilities and behavior are as follows:
+        
+        1. Permanent Context:
+        - You maintain the {patient_id} as your permanent context.
+        - You can access patient data and medical history from the database using this ID.
+
+        Look at the series of tools available and make a plan about the next steps for the patient should follow. This plan might include referring the patient to a specialist, determining if more tests are necessary and ordering new blood work, giving the patient a basic diagnosis of health issues surrfaced from tests.
+
+        You have 4 tools: Diagnose Tool, Test Request Tool, Notification Tool, Database Access Tool.
+
+        a) get_data_tool: Returns patient information and medical history. 
+        b) diagnose_tool: Analyze medical_history, patient_data, and current medical report data -> produces [conclusion] or <need further help>/<need further test>.
+        c) test_tool: Based on diagnose result, determines if additional tests are needed. If yes, requests specific tests.
+        d) notification_tool: Sends notifications to the patient about results or next steps.
+
+        You must finish your process by calling notficiation_tool to inform the patient of your findings and next steps, if there are any.
+        
+        Use them as you see fit to complete this task.
+        """
     )
 
     initial_state = {"messages": [initial_message]}
