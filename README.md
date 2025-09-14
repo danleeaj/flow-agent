@@ -9,8 +9,6 @@
 
 MediFlow is an intelligent healthcare workflow system that uses AI agents to analyze, route, and communicate lab results. It transforms the traditional bottleneck of lab result processing into an efficient, automated pipeline that respects both physician time and patient anxiety.
 
-**Live Demo**: [https://render-fastapi-flow.onrender.com](https://render-fastapi-flow.onrender.com)
-
 ## Key Features
 
 - 🤖 **Multi-Agent AI System** - Orchestrates specialized AI agents for different medical tasks
