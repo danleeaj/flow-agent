@@ -1,3 +1,9 @@
-fastapi[all]
-langchain[google-genai]
+fastapi
+uvicorn
+langchain
+langchain-google-genai
 langgraph
+python-dotenv
+twilio
+requests
+pydantic
