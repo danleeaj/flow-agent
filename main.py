@@ -74,3 +74,15 @@ def get_patient_report_get(patient_id: str):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating patient report: {str(e)}")
+    
+@app.post("/patient/{patient_id}")
+def trigger_patient_report_post(patient_id: str):
+    """POST endpoint to trigger a patient report."""
+    try:
+        if not patient_id or not patient_id.strip():
+            raise HTTPException(status_code=400, detail="Patient ID cannot be empty")
+        
+        process_patient_data(patient_id.strip())
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating patient report: {str(e)}")
