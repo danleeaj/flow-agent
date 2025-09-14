@@ -9,16 +9,52 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 import random
 
+import re
+
 import dotenv
 dotenv.load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
+def call_llm(prompt: str) -> str:
+    subprocess_llm = init_chat_model("google_genai:gemini-2.0-flash")
+    response = subprocess_llm.invoke([HumanMessage(content=prompt)])
+    return response.content
+
+# @tool
+# def diagnose_tool(vitals: str) -> str:
+#     """Returns a possible diagnosis based on a summary of patient's medical history. The assistant must personally summarize the patient's medical history before calling this tool."""
+#     return "cancer"
+
 @tool
 def diagnose_tool(vitals: str) -> str:
     """Returns a possible diagnosis based on a summary of patient's medical history. The assistant must personally summarize the patient's medical history before calling this tool."""
-    return "cancer"
+    prompt = f"""
+    Patient data: {vitals}
+    You are a clinical decision-support assistant. Based only on the provided patient data and medical history, decide whether further tests are required.
+    TASKS:
+    1. Provide a brief explanation of the key findings in the report (what the values or indices mean).
+   - If there is an obvious disease and you are very certain, state it clearly as your impression.
+    2. Assign a confidence level (1–5) to your impression. 1 is you are absolutely not sure. 5 is you are a hundred percent sure about your diagnosis.
+    OUTPUT: concise key findings and diagnose and <confidence integer>
+  """
+
+    response = call_llm(prompt).strip()
+    m = re.match(r"^\s*([1-5])\s*$", response)
+    confidence = int(m.group(1)) if m else 3
+
+    if confidence >= 3:
+        impression_prompt = f"""
+        Patient data: {vitals}
+
+        Give a concise clinical impression (one sentence).
+        """
+        impression = call_llm(impression_prompt)
+        # return f"CLINICAL IMPRESSION: {impression}\nCONFIDENCE: {confidence}/5"
+        return "<need further test>"
+    else:
+        return "<need further test>"
 
 @tool
 def output_diagnosis(diagnosis: str) -> str:
@@ -64,14 +100,45 @@ def notification_tool(message: str) -> str:
     return "Notification sent."
 
 @tool
+def order_test_tool(test_name: str) -> str:
+    """Orders a specific medical test for the patient."""
+    print(f"Ordered test: {test_name}")
+    return f"Test '{test_name}' ordered."
+
+@tool
 def test_tool(message: str) -> str:
-    """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
     return "Tumor markers"
+
+# @tool
+# def test_tool(message: str) -> str:
+#     """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
+
+#     test_prompt = """You are a Patient Agent responsible deciding whether further medical tests are needed.
+#     Base on the following note from the doctor, decide whether further test is needed. If the symptom is obvious then no, if yes then yes.
+
+#     {message} 
+
+#     The following are tests available:
+
+#     1. Troponin (heart-damage check)
+#     2. D-dimer (blood-clot screen)
+#     3. Lactate (body “stress/oxygen debt” signal)
+#     4. Blood cultures (find bacteria in the bloodstream)
+#     5. Respiratory PCR panel (COVID/Flu/RSV, etc.)
+
+#     - Output a single combined string.
+#     - For missing tests, include "<no further test>".
+#     - For tests that exist, include "<{label} test>" (replace {label} with the test name).
+#     - Combine all results into one string without extra text or formatting.
+#     - Your output should just contain the tests needed or "<no further test>".
+# """
+#     need_test = call_llm(test_prompt)
+#     return need_test.strip()
 
 llm = init_chat_model("google_genai:gemini-2.0-flash")
 
 # Remember to use the tools
-tools = [diagnose_tool, output_diagnosis, notification_tool, get_data_tool, test_tool]
+tools = [diagnose_tool, output_diagnosis, notification_tool, get_data_tool, test_tool, order_test_tool]
 llm_with_tools = llm.bind_tools(tools)
 
 def should_continue(state: State):
@@ -135,10 +202,11 @@ def process_patient_data(patient_id: str):
         a) get_data_tool: Returns patient information and medical history. 
         b) diagnose_tool: Analyze medical_history, patient_data, and current medical report data -> produces [conclusion] or <need further help>/<need further test>.
         c) test_tool: Based on diagnose result, determines if additional tests are needed. If yes, requests specific tests.
-        d) notification_tool: Sends notifications to the patient about results or next steps.
+        d) order_test_tool: Orders specific medical tests for the patient. This must be followed by the notification tool to notify the patient of the tests ordered.
+        e) notification_tool: Sends notifications to the patient about results or next steps.
 
-        You must finish your process by calling notficiation_tool to inform the patient of your findings and next steps, if there are any.
-        
+        If a test is needed, you must order a test before calling the notification_tool to inform the patient of the test ordered and next steps. If not, you must finish your process by informing the patient of your findings, or if everything is normal.
+
         Use them as you see fit to complete this task.
         """
     )
