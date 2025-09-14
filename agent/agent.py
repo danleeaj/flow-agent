@@ -11,16 +11,52 @@ import random
 from twilio.rest import Client
 from datetime import datetime
 
+import re
+
 import dotenv
 dotenv.load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
 
+def call_llm(prompt: str) -> str:
+    subprocess_llm = init_chat_model("google_genai:gemini-2.0-flash")
+    response = subprocess_llm.invoke([HumanMessage(content=prompt)])
+    return response.content
+
+# @tool
+# def diagnose_tool(vitals: str) -> str:
+#     """Returns a possible diagnosis based on a summary of patient's medical history. The assistant must personally summarize the patient's medical history before calling this tool."""
+#     return "cancer"
+
 @tool
 def diagnose_tool(vitals: str) -> str:
     """Returns a possible diagnosis based on a summary of patient's medical history. The assistant must personally summarize the patient's medical history before calling this tool."""
-    return "cancer"
+    prompt = f"""
+    Patient data: {vitals}
+    You are a clinical decision-support assistant. Based only on the provided patient data and medical history, decide whether further tests are required.
+    TASKS:
+    1. Provide a brief explanation of the key findings in the report (what the values or indices mean).
+   - If there is an obvious disease and you are very certain, state it clearly as your impression.
+    2. Assign a confidence level (1–5) to your impression. 1 is you are absolutely not sure. 5 is you are a hundred percent sure about your diagnosis.
+    OUTPUT: concise key findings and diagnose and <confidence integer>
+  """
+
+    response = call_llm(prompt).strip()
+    m = re.match(r"^\s*([1-5])\s*$", response)
+    confidence = int(m.group(1)) if m else 3
+
+    if confidence >= 3:
+        impression_prompt = f"""
+        Patient data: {vitals}
+
+        Give a concise clinical impression (one sentence).
+        """
+        impression = call_llm(impression_prompt)
+        return f"CLINICAL IMPRESSION: {impression}\nCONFIDENCE: {confidence}/5"
+        # return "<need further test>"
+    else:
+        return "<need further test>"
 
 @tool
 def output_diagnosis(diagnosis: str) -> str:
@@ -53,70 +89,116 @@ def get_data_tool(patient_id: str) -> str:
 @tool
 def notification_tool(message: str) -> str:
     """Sends a notification to the patient via WhatsApp using Twilio."""
-    try:
-        # Get credentials from environment variables
-        account_sid = os.getenv("ACCOUNT_SID")
-        auth_token = os.getenv("AUTH_TOKEN")
 
-        # Validate credentials exist
-        if not account_sid or not auth_token:
-            error_msg = "Error: Twilio credentials not found. Please set ACCOUNT_SID and AUTH_TOKEN environment variables."
-            print(f"[ERROR] {error_msg}")
-            return error_msg
+    client = Client(os.getenv("ACCOUNT_SID"), os.getenv("AUTH_TOKEN"))
 
-        # Get phone numbers from environment or use defaults
-        sender_number = os.getenv("TWILIO_WHATSAPP_NUMBER", "14155238886")
-        recipient_number = os.getenv("PATIENT_WHATSAPP_NUMBER", "6588663319")
+    # Get credentials from environment variables
+    account_sid = os.getenv("ACCOUNT_SID")
+    auth_token = os.getenv("AUTH_TOKEN")
 
-        # Initialize Twilio client
-        client = Client(account_sid, auth_token)
+    # Get phone numbers from environment or use defaults
+    sender_number = os.getenv("WHATSAPP_FROM")
+    recipient_number = os.getenv("WHATSAPP_TO")
 
-        # Format the message with timestamp and context
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        formatted_message = f"[Patient Diagnosis Report - {timestamp}]\n\n{message}"
+    # Initialize Twilio client
+    client = Client(account_sid, auth_token)
 
-        # Validate message length (WhatsApp has a 1600 character limit for body text)
-        if len(formatted_message) > 1600:
-            formatted_message = formatted_message[:1597] + "..."
-            print(f"[WARNING] Message truncated to fit WhatsApp limit")
+    # Send the WhatsApp message
+    message_obj = client.messages.create(
+        from_=f'whatsapp:+{sender_number}',
+        body=message,
+        to=f'whatsapp:+{recipient_number}'
+    )
 
-        # Send the WhatsApp message
-        message_obj = client.messages.create(
-            from_=f'whatsapp:+{sender_number}',
-            body=formatted_message,
-            to=f'whatsapp:+{recipient_number}'
-        )
+    return(f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}")
 
-        # Log success
-        print(f"[SUCCESS] WhatsApp notification sent to +{recipient_number}")
-        print(f"[INFO] Message SID: {message_obj.sid}")
-        print(f"[INFO] Message preview: {formatted_message[:100]}...")
+@tool
+def order_test_tool(test_names: list[str]) -> str:
+    """Orders a list of tests for the patient. Enter as an array of strings."""
+    print(f"Ordered tests: {', '.join(test_names)}")
+    return f"Tests '{', '.join(test_names)}' ordered."
 
-        return f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}"
-
-    except Exception as e:
-        error_msg = f"Failed to send WhatsApp notification: {str(e)}"
-        print(f"[ERROR] {error_msg}")
-
-        # Provide helpful error messages for common issues
-        if "authentication" in str(e).lower():
-            error_msg += "\n[HINT] Check your Twilio credentials in the .env file"
-        elif "phone number" in str(e).lower():
-            error_msg += "\n[HINT] Verify the phone numbers are in correct format (country code without +)"
-        elif "not verified" in str(e).lower():
-            error_msg += "\n[HINT] The recipient number may need to be verified in your Twilio sandbox"
-
-        return error_msg
+# @tool
+# def test_tool(message: str) -> str:
+#     """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
+#     return "Tumor markers"
 
 @tool
 def test_tool(message: str) -> str:
-    """Based on evaluation, determines if additional tests are needed. If yes, returns specific tests."""
-    return "Tumor markers"
+    """Determines if additional diagnostic tests are needed based on patient evaluation."""
+    
+    test_prompt = """You are a Clinical Decision Support Agent. Based on the patient evaluation provided, determine if additional diagnostic tests are warranted.
+
+PATIENT EVALUATION:
+{message}
+
+CARDIAC/VASCULAR:
+1. Troponin - Cardiac injury marker
+2. CK-MB - Myocardial damage enzyme
+3. BNP/NT-proBNP - Heart failure marker
+4. D-dimer - Thromboembolism screening
+
+HEMATOLOGY/COAGULATION:
+5. Complete Blood Count (CBC) - Cell counts and morphology
+6. PT/INR - Coagulation function
+7. PTT - Intrinsic coagulation pathway
+8. Fibrinogen - Clotting protein level
+
+CHEMISTRY/METABOLIC:
+9. Basic Metabolic Panel (BMP) - Electrolytes, kidney function
+10. Comprehensive Metabolic Panel (CMP) - Extended chemistry panel
+11. Lactate - Tissue hypoperfusion/metabolic stress
+12. Arterial Blood Gas (ABG) - Acid-base and oxygenation status
+13. Venous Blood Gas (VBG) - Venous pH and CO2
+14. Glucose - Blood sugar level
+15. HbA1c - Long-term glucose control
+
+LIVER/PANCREAS:
+16. Liver Function Tests (LFT) - Hepatic enzyme panel
+17. Lipase - Pancreatic enzyme
+18. Amylase - Pancreatic/salivary enzyme
+
+INFECTIOUS DISEASE:
+19. Blood cultures - Bacteremia detection
+20. Respiratory PCR panel - Viral pathogens (COVID-19, Influenza, RSV, etc.)
+21. Procalcitonin - Bacterial infection marker
+22. C-reactive protein (CRP) - Inflammation marker
+23. Erythrocyte Sedimentation Rate (ESR) - Systemic inflammation
+
+ENDOCRINE:
+24. Thyroid Function Tests (TFT) - TSH, T3, T4
+25. Cortisol - Adrenal function
+
+RENAL/URINARY:
+26. Urinalysis - Urine composition and microscopy
+27. Creatinine - Kidney function marker
+
+TOXICOLOGY:
+28. Urine drug screen - Substance detection
+29. Ethanol level - Alcohol concentration
+30. Salicylate level - Aspirin toxicity screening
+
+DECISION CRITERIA:
+- If clinical picture is clear and diagnosis is evident → No additional tests needed
+- If differential diagnosis requires confirmation → Recommend specific tests
+- If critical conditions need to be ruled out → Recommend appropriate screening tests
+
+OUTPUT FORMAT:
+- If no tests needed: "<no further test>"
+- If tests needed: "<test_name>" for each required test
+- Output only the test recommendations, no additional text
+- Recommend at most 1 test
+
+Provide your recommendation:"""
+# - Multiple tests: Separate with spaces (e.g., "<troponin> <d-dimer>")
+    
+    need_test = call_llm(test_prompt.format(message=message))
+    return need_test.strip()
 
 llm = init_chat_model("google_genai:gemini-2.0-flash")
 
 # Remember to use the tools
-tools = [diagnose_tool, output_diagnosis, notification_tool, get_data_tool, test_tool]
+tools = [diagnose_tool, output_diagnosis, notification_tool, get_data_tool, test_tool, order_test_tool]
 llm_with_tools = llm.bind_tools(tools)
 
 def should_continue(state: State):
@@ -180,10 +262,11 @@ def process_patient_data(patient_id: str):
         a) get_data_tool: Returns patient information and medical history. 
         b) diagnose_tool: Analyze medical_history, patient_data, and current medical report data -> produces [conclusion] or <need further help>/<need further test>.
         c) test_tool: Based on diagnose result, determines if additional tests are needed. If yes, requests specific tests.
-        d) notification_tool: Sends notifications to the patient about results or next steps.
+        d) order_test_tool: Orders specific medical tests for the patient. This must be followed by the notification tool to notify the patient of the tests ordered.
+        e) notification_tool: Sends notifications to the patient about results or next steps.
 
-        You must finish your process by calling notficiation_tool to inform the patient of your findings and next steps, if there are any.
-        
+        If a test is needed, you must order a test before calling the notification_tool to inform the patient of the test ordered and next steps. If not, you must finish your process by informing the patient of your findings, or if everything is normal.
+
         Use them as you see fit to complete this task.
         """
     )
