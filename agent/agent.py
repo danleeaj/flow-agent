@@ -8,6 +8,8 @@ from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 import random
+from twilio.rest import Client
+from datetime import datetime
 
 import dotenv
 dotenv.load_dotenv()
@@ -50,18 +52,61 @@ def get_data_tool(patient_id: str) -> str:
 
 @tool
 def notification_tool(message: str) -> str:
-    """Sends a notification to the patient."""
-    # from twilio.rest import Client
-    # client = Client(os.getenv("ACCOUNT_SID"), os.getenv("AUTH_TOKEN"))
-    
-    # message_obj = client.messages.create(
-    #     from_='whatsapp:+14155238886',
-    #     body=message,
-    #     to='whatsapp:+6588663319'
-    # )
-    
-    # print(f"Notification sent to patient: {message}")
-    return "Notification sent."
+    """Sends a notification to the patient via WhatsApp using Twilio."""
+    try:
+        # Get credentials from environment variables
+        account_sid = os.getenv("ACCOUNT_SID")
+        auth_token = os.getenv("AUTH_TOKEN")
+
+        # Validate credentials exist
+        if not account_sid or not auth_token:
+            error_msg = "Error: Twilio credentials not found. Please set ACCOUNT_SID and AUTH_TOKEN environment variables."
+            print(f"[ERROR] {error_msg}")
+            return error_msg
+
+        # Get phone numbers from environment or use defaults
+        sender_number = os.getenv("TWILIO_WHATSAPP_NUMBER", "14155238886")
+        recipient_number = os.getenv("PATIENT_WHATSAPP_NUMBER", "6588663319")
+
+        # Initialize Twilio client
+        client = Client(account_sid, auth_token)
+
+        # Format the message with timestamp and context
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        formatted_message = f"[Patient Diagnosis Report - {timestamp}]\n\n{message}"
+
+        # Validate message length (WhatsApp has a 1600 character limit for body text)
+        if len(formatted_message) > 1600:
+            formatted_message = formatted_message[:1597] + "..."
+            print(f"[WARNING] Message truncated to fit WhatsApp limit")
+
+        # Send the WhatsApp message
+        message_obj = client.messages.create(
+            from_=f'whatsapp:+{sender_number}',
+            body=formatted_message,
+            to=f'whatsapp:+{recipient_number}'
+        )
+
+        # Log success
+        print(f"[SUCCESS] WhatsApp notification sent to +{recipient_number}")
+        print(f"[INFO] Message SID: {message_obj.sid}")
+        print(f"[INFO] Message preview: {formatted_message[:100]}...")
+
+        return f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}"
+
+    except Exception as e:
+        error_msg = f"Failed to send WhatsApp notification: {str(e)}"
+        print(f"[ERROR] {error_msg}")
+
+        # Provide helpful error messages for common issues
+        if "authentication" in str(e).lower():
+            error_msg += "\n[HINT] Check your Twilio credentials in the .env file"
+        elif "phone number" in str(e).lower():
+            error_msg += "\n[HINT] Verify the phone numbers are in correct format (country code without +)"
+        elif "not verified" in str(e).lower():
+            error_msg += "\n[HINT] The recipient number may need to be verified in your Twilio sandbox"
+
+        return error_msg
 
 @tool
 def test_tool(message: str) -> str:
