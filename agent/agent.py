@@ -9,8 +9,8 @@ from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage
 import random
 
-# import dotenv
-# dotenv.load_dotenv()
+import dotenv
+dotenv.load_dotenv()
 
 class State(TypedDict):
     messages: Annotated[list, add_messages]
@@ -51,7 +51,16 @@ def get_data_tool(patient_id: str) -> str:
 @tool
 def notification_tool(message: str) -> str:
     """Sends a notification to the patient."""
-    print(f"Notification sent to patient: {message}")
+    # from twilio.rest import Client
+    # client = Client(os.getenv("ACCOUNT_SID"), os.getenv("AUTH_TOKEN"))
+    
+    # message_obj = client.messages.create(
+    #     from_='whatsapp:+14155238886',
+    #     body=message,
+    #     to='whatsapp:+6588663319'
+    # )
+    
+    # print(f"Notification sent to patient: {message}")
     return "Notification sent."
 
 @tool
