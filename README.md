@@ -32,9 +32,9 @@ MediFlow is an intelligent healthcare workflow system that uses AI agents to ana
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
 │   Lab Systems   │────▶│    FastAPI       │────▶│   AI Agent          │
-│   - Upload       │     │    Endpoints     │     │   Orchestrator      │
-│   - Receive      │     │    - Process     │     │   - Analysis        │
-│     Orders       │     │    - Route       │     │   - Decision        │
+│   - Upload      │     │    Endpoints     │     │   Orchestrator      │
+│   - Receive     │     │    - Process     │     │   - Analysis        │
+│     Orders      │     │    - Route       │     │   - Decision        │
 └─────────────────┘     └──────────────────┘     └─────────────────────┘
          ▲                         │                         │
          │                         ▼                         ▼
