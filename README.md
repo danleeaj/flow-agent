@@ -2,12 +2,12 @@
 
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-green)
-![LangChain](https://img.shields.io/badge/LangChain-latest-orange)
+![LangGraph](https://img.shields.io/badge/LangGragh-latest-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## Overview
 
-MediFlow is an intelligent healthcare workflow system that uses AI agents to analyze, route, and communicate lab results. It transforms the traditional bottleneck of lab result processing into an efficient, automated pipeline that respects both physician time and patient anxiety.
+MediFlow is an intelligent healthcare workflow system that uses AI agents to analyze, route, and communicate lab results. MediFlow empowers healthcare professionals to efficiently manage test orders, accelerate diagnostic processes, and optimize patient care delivery.
 
 ## Key Features
 
@@ -15,14 +15,13 @@ MediFlow is an intelligent healthcare workflow system that uses AI agents to ana
 - 📊 **Intelligent Lab Result Analysis** - Automatically interprets and triages lab results
 - 📱 **WhatsApp Integration** - Instant patient notifications via WhatsApp Business API
 - 🔄 **Smart Routing** - Routes results based on urgency and confidence levels
-- 🏥 **Healthcare API** - RESTful endpoints for easy integration with existing systems
-- 🔐 **Secure Data Handling** - Built with HIPAA compliance in mind
+- 🧑‍⚕️ **User-friendly Management System** - Easy-to-use database and manage system to upload and manage reports
 - 📈 **Scalable Architecture** - Designed to handle high volumes of lab results
 
 ## Tech Stack
 
 - **Backend**: FastAPI, Python 3.8+
-- **AI/ML**: LangChain, LangGraph, Google Gemini 2.0 Flash
+- **AI/ML**: LangGraph, Google Gemini 2.0 Flash
 - **Database**: Supabase (PostgreSQL)
 - **Messaging**: Twilio (WhatsApp/SMS)
 - **Deployment**: Render, Uvicorn
@@ -31,19 +30,39 @@ MediFlow is an intelligent healthcare workflow system that uses AI agents to ana
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│   Lab/EMR   │────▶│   FastAPI    │────▶│   AI Agent      │
-│   Systems   │     │   Endpoints  │     │   Orchestrator  │
-└─────────────┘     └──────────────┘     └─────────────────┘
-                            │                      │
-                            ▼                      ▼
-                    ┌──────────────┐     ┌─────────────────┐
-                    │   Patient    │◀────│   Tool Suite:   │
-                    │  WhatsApp/   │     │ - Diagnosis     │
-                    │     SMS      │     │ - Testing       │
-                    └──────────────┘     │ - Notification  │
-                                         │ - Data Access   │
-                                         └─────────────────┘
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│   Lab Systems   │────▶│    FastAPI       │────▶│   AI Agent          │
+│   - Upload      │     │    Endpoints     │     │   Orchestrator      │
+│   - Receive     │     │    - Process     │     │   - Analysis        │
+│     Orders      │     │    - Route       │     │   - Decision        │
+└─────────────────┘     └──────────────────┘     └─────────────────────┘
+         ▲                         │                         │
+         │                         ▼                         ▼
+         │               ┌──────────────────┐     ┌─────────────────────┐
+         │               │  Doctor Database │     │    Tool Suite       │
+         │               │  & Management    │────▶│  ┌───────────────┐  │
+         │               │  System          │     │  │ - Diagnosis   │  │
+         │               │  - Store Reports │     │  │ - Lab Testing │  │
+         │               │  - Trigger AI    │     │  │ - Notification│  │
+         │               └──────────────────┘     │  │ - Data Access │  │
+         │                                        │  └───────────────┘  │
+         │                                        └─────────────────────┘
+         │                                                   │
+         │                                                   ▼
+         │               ┌──────────────────┐     ┌─────────────────────┐
+         └───────────────│  New Test Orders │◀────│   WhatsApp/SMS      │
+                         │  Generation      │     │   Notifications     │
+                         │                  │     │   - Results         │
+                         └──────────────────┘     │   - Follow-up       │
+                                                  │   - Alerts          │
+                                                  └─────────────────────┘
+                                                           │
+                                                           ▼
+                                                  ┌─────────────────────┐
+                                                  │      Patients       │
+                                                  │   Receive Results   │
+                                                  │   & Instructions    │
+                                                  └─────────────────────┘
 ```
 
 ## Getting Started
@@ -174,22 +193,7 @@ MediFlow uses a sophisticated multi-agent system powered by LangGraph:
 2. **diagnose_tool**: Analyzes medical data and provides preliminary diagnosis
 3. **test_tool**: Determines if additional tests are needed
 4. **notification_tool**: Sends WhatsApp notifications to patients
-5. **output_diagnosis**: Formats and outputs final diagnosis
 
-### Workflow Process
-
-```mermaid
-graph LR
-    A[Receive Lab Results] --> B[Fetch Patient Data]
-    B --> C[AI Analysis]
-    C --> D{Confidence Check}
-    D -->|High| E[Auto-notify Patient]
-    D -->|Low| F[Flag for Review]
-    D -->|Critical| G[Alert Physician]
-    E --> H[Audit Log]
-    F --> H
-    G --> H
-```
 
 ## Testing
 
