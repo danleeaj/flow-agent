@@ -10,6 +10,8 @@ from langchain_core.messages import HumanMessage
 import random
 from twilio.rest import Client
 from datetime import datetime
+import time
+
 
 import re
 
@@ -269,6 +271,9 @@ graph = graph_builder.compile()
 # THIS IS THE ENTRY POINT
 def process_patient_data(patient_id: str):
     # patient_history = get_patient_history(patient_id)
+
+    time.sleep(5)
+
     initial_message = HumanMessage(
         content=f"""
         You are a Patient Diagnosis AI, permanently associated with a specific patient via patient_id.  Your responsibilities and behavior are as follows:
