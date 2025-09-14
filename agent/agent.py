@@ -94,8 +94,8 @@ def get_data_tool(patient_id: str) -> str:
         return f"Error: Failed to retrieve results for patient {patient_id}. Either patient_id is wrong or there is no historical data."
 
 @tool
-def notification_tool(message: str) -> str:
-    """Sends a notification to the patient via WhatsApp using Twilio."""
+def notification_tool(message: str, patient_id: str) -> str:
+    """Sends a notification to the patient, whose patient_id must be submitted as well."""
 
     client = Client(os.getenv("ACCOUNT_SID"), os.getenv("AUTH_TOKEN"))
 
@@ -105,7 +105,27 @@ def notification_tool(message: str) -> str:
 
     # Get phone numbers from environment or use defaults
     sender_number = os.getenv("WHATSAPP_FROM")
-    recipient_number = os.getenv("WHATSAPP_TO")
+
+    import requests
+
+    url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/patient-contact-search'
+    headers = {
+        'Authorization': 'Bearer sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R',
+        'apikey': 'sb_publishable_XLSGi6ODTjNGv09KuveIAw_f8AED19R'
+    }
+
+    # Method 1: Using params (cleaner)
+    params = {'patient_id': patient_id}
+    response = requests.get(url, headers=headers, params=params)
+
+    if response.status_code == 200:
+        result = response.json()
+        result = result['patient']['contact']
+        # print(result)
+    else:
+        return f"Error: Failed to retrieve contact for patient {patient_id}. Either patient_id is wrong or there is no contact."
+
+    recipient_number = result
 
     # Initialize Twilio client
     client = Client(account_sid, auth_token)
@@ -120,8 +140,8 @@ def notification_tool(message: str) -> str:
     return(f"WhatsApp notification successfully sent to patient at +{recipient_number}. Message ID: {message_obj.sid}")
 
 @tool
-def order_test_tool(test_names: list[str], patient_id: str) -> str:
-    """Orders a list of tests for the patient, where patient_id is required. Enter as an array of strings."""
+def order_test_tool(test_name: str, patient_id: str) -> str:
+    """Orders a test for the patient, where patient_id is required."""
 
     import requests
     url = 'https://jzyhllxxkkwfryebzvdn.supabase.co/functions/v1/create-order'
@@ -131,16 +151,22 @@ def order_test_tool(test_names: list[str], patient_id: str) -> str:
         'Content-Type': 'application/json'
     }
 
-    for test in test_names:
+    data = {
+        "patient_id": patient_id,
+        "test": test_name
+    }
+    response = requests.post(url, headers=headers, json=data)
 
-        data = {
-            "patient_id": patient_id,
-            "test": test
-        }
-        response = requests.post(url, headers=headers, json=data)
+    # for test in test_names:
 
-    print(f"Ordered tests: {', '.join(test_names)}")
-    return f"Tests '{', '.join(test_names)}' ordered."
+    #     data = {
+    #         "patient_id": patient_id,
+    #         "test": test
+    #     }
+    #     response = requests.post(url, headers=headers, json=data)
+
+    print(f"Ordered {test_name}")
+    return f"Ordered {test_name}"
 
 # @tool
 # def test_tool(message: str) -> str:
@@ -311,4 +337,4 @@ def process_patient_data(patient_id: str):
 
 # Example usage
 if __name__ == "__main__":
-    process_patient_data("00000000-0000-0000-0000-000000000000")
+    process_patient_data("6f5ace3b-fc16-4a32-9b35-1b936af758eb")
